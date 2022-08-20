@@ -114,18 +114,19 @@ const getCommits = (page, userName, repoName, dispatch) => {
         try {
           const commits = response.data.reverse().map((commitObj) => {
             return {
-              name: commitObj?.committer?.login,
+              name: commitObj?.committer?.login || commitObj.commit.committer.name,
               value: 1,
               date: commitObj.commit.committer.date,
+              sha: commitObj.sha,
             }
           });
 
-          console.log("POST commits page: " + page, commits)
+          console.log("commits page: " + page, commits)
           dispatch(setCommits(commits));
         } catch (e) {
           console.error(e)
         }
-        if (page < 2) {
+        if (page < 8) {
 
           getCommits(page + 1, userName, repoName, dispatch)
         }
@@ -136,7 +137,7 @@ const getCommits = (page, userName, repoName, dispatch) => {
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [play, setPlay] = useState(false);
-  useEffect(() => {
+  /* useEffect(() => {
     if (state.loading) {
       axios
         .get(`https://api.github.com/repos/${state.userName}/${state.repoName}/commits?per_page=${PAGE_SIZE}&page=${PAGE_NUM}`)
@@ -159,7 +160,7 @@ function App() {
 
         })
     }
-  }, [state.loading, state.userName, state.repoName]);
+  }, [state.loading, state.userName, state.repoName]);*/
 
   /*useInterval(() => {
     const randomIndex = getRandomIndex(state.data);
@@ -177,9 +178,9 @@ function App() {
       // 
     }
   }, 5000);*/
-  useEffect(() => {
+  const fetchCommits = () => {
     getCommits(0, state.userName, state.repoName, dispatch);
-  }, [state.userName, state.repoName]);
+  }
   return (
     <div className="App">
       <header className="App-header">
@@ -204,6 +205,7 @@ function App() {
         <div className='buttons'>
           <button onClick={() => {
             dispatch(setLoading(true))
+            fetchCommits()
           }}>
             Fetch github commits data
           </button>
