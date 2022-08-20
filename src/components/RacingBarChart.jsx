@@ -3,7 +3,7 @@ import React, { useEffect, useRef } from "react";
 
 import useResizeObserver from "./useResizeObserver";
 
-function RacingBarChart({ data = [] }) {
+function RacingBarChart({ data }) {
   const svgRef = useRef();
   const wrapperRef = useRef();
   const dimensions = useResizeObserver(wrapperRef);
@@ -52,7 +52,7 @@ function RacingBarChart({ data = [] }) {
             (entry, index) => yScale(index) + yScale.bandwidth() / 2 + 5
           )
       )
-      .text(entry => `🐎 ... ${entry.name} (${entry.value} meters)`)
+      .text(entry => `🐎 ... ${entry.name} (${entry.value} commits)`)
       .attr("class", "label")
       .attr("x", 10)
       .transition()
