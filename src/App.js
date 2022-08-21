@@ -1,19 +1,16 @@
 import './App.css';
 
 import axios from "axios";
+import { orderBy } from "lodash";
 import { useEffect, useReducer, useState } from "react";
 
 import Form from './components/Form';
 import RacingBarChart from "./components/RacingBarChart";
 // import RacingBarChart from "./components/RacingChart";
 import logo from './logo.svg';
-import useInterval from './useInterval';
 
 const PAGE_SIZE = 100;
-const PAGE_NUM = 44;
-const getRandomIndex = array => {
-  return Math.floor(array.length * Math.random());
-};
+const NUM_USERS_TO_SHOW = 5;
 
 const initialData = [
   {
@@ -37,10 +34,11 @@ const extraData = [
 ]
 
 const initialState = {
-  userName: "d3",
-  repoName: "d3",
+  userName: "MV88",
+  repoName: "tab-results",
   data: initialData,
-  commits: []
+  commits: [],
+  commitsLoaded: false
 };
 
 const SET_USERNAME = "SET_USERNAME";
@@ -64,9 +62,13 @@ const setData = (data) => ({
   data
 })
 const SET_COMMITS = "SET_COMMITS";
-const setCommits = (data) => ({
+const setCommits = (commits) => ({
   type: SET_COMMITS,
-  data
+  commits
+})
+const COMMITS_LOADED = "COMMITS_LOADED";
+const commitsLoaded = () => ({
+  type: COMMITS_LOADED
 })
 
 function reducer(state, action) {
@@ -97,6 +99,11 @@ function reducer(state, action) {
         ...state,
         commits: state.commits.concat(action.commits)
       };
+    case COMMITS_LOADED:
+      return {
+        ...state,
+        commitsLoaded: true
+      };
     default:
       return state;
   }
@@ -114,21 +121,29 @@ const getCommits = (page, userName, repoName, dispatch) => {
         try {
           const commits = response.data.reverse().map((commitObj) => {
             return {
+              date: commitObj.commit.committer.date.split("T")[0],
               name: commitObj?.committer?.login || commitObj.commit.committer.name,
+              dateObj: {
+                originalDate: commitObj.commit.committer.date,
+                day: new Date(commitObj.commit.committer.date).getDate(),
+                month: new Date(commitObj.commit.committer.date).getMonth() + 1,
+                year: new Date(commitObj.commit.committer.date).getFullYear()
+              },
               value: 1,
-              date: commitObj.commit.committer.date,
               sha: commitObj.sha,
             }
           });
 
           console.log("commits page: " + page, commits)
           dispatch(setCommits(commits));
+
+          if (response.data.length === 100) {
+            getCommits(page + 1, userName, repoName, dispatch);
+          } else {
+            dispatch(commitsLoaded());
+          }
         } catch (e) {
           console.error(e)
-        }
-        if (page < 8) {
-
-          getCommits(page + 1, userName, repoName, dispatch)
         }
       }
     })
@@ -137,50 +152,41 @@ const getCommits = (page, userName, repoName, dispatch) => {
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [play, setPlay] = useState(false);
-  /* useEffect(() => {
-    if (state.loading) {
-      axios
-        .get(`https://api.github.com/repos/${state.userName}/${state.repoName}/commits?per_page=${PAGE_SIZE}&page=${PAGE_NUM}`)
-        .then(response => {
-          console.log("commits ", response.data);
-          const counters = {
-
-          };
-          const commits = response.data.reverse().map((commitObj) => {
-            counters[commitObj.committer.login] = (counters[commitObj.committer.login] || 0) + 1;
-            return {
-              name: commitObj.committer.login,
-              value: counters[commitObj.committer.login],
-              date: commitObj.commit.committer.date,
-            }
-          });
-          console.log("commits parsed ", commits);
-          dispatch(setData(commits));
-          dispatch(setLoading(false));
-
-        })
-    }
-  }, [state.loading, state.userName, state.repoName]);*/
-
-  /*useInterval(() => {
-    const randomIndex = getRandomIndex(state.data);
-    if (play) {
-      //   dispatch(setData(
-      //     state.data.map((entry, index) =>
-      //       index === randomIndex
-      //         ? {
-      //           ...entry,
-      //           value: entry.value + 10
-      //         }
-      //         : entry
-      //     )
-      //   ));
-      // 
-    }
-  }, 5000);*/
   const fetchCommits = () => {
-    getCommits(0, state.userName, state.repoName, dispatch);
+    getCommits(1, state.userName, state.repoName, dispatch);
   }
+  useEffect(() => {
+    if (state.commitsLoaded) {
+      const commits = state.commits.reduce((prev, current) => {
+        return {
+          ...prev,
+          [current.date]: {
+            [current.name]: {
+              value: (prev?.[current.date]?.[current.name].value || 0) + current.value,
+              name: current.name
+            }
+          }
+        }
+      }, {});
+      console.log("commits organized per day", commits);
+      const bestSelection = Object.keys(commits).reduce((prev, current) => {
+        const dataPerUser = commits[current];
+        const dataPerUserArray = Object.keys(dataPerUser).map(username => {
+          return { name: username, value: dataPerUser[username].value };
+        });
+        const users = orderBy(dataPerUserArray, 'value', 'desc')
+        const usersFiltered = users.filter((_, i) => (i < NUM_USERS_TO_SHOW));
+        return {
+          ...prev,
+          [current]: usersFiltered
+        }
+
+      }, {})
+      console.log("top 5 commits", bestSelection);
+
+
+    }
+  }, [state.commitsLoaded, state.commits])
   return (
     <div className="App">
       <header className="App-header">
@@ -202,6 +208,7 @@ function App() {
             }
           }}
         />
+        {state.commitsLoaded ? <div></div> : null}
         <div className='buttons'>
           <button onClick={() => {
             dispatch(setLoading(true))
