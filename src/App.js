@@ -6,6 +6,7 @@ import { useEffect, useReducer, useState } from "react";
 
 import Form from './components/Form';
 import RacingBarChart from "./components/RacingBarChart";
+import { token_github } from './constants/constants';
 // import RacingBarChart from "./components/RacingChart";
 import useInterval from './useInterval';
 
@@ -97,7 +98,7 @@ const getCommits = (page, userName, repoName, dispatch) => {
   axios
     .get(`https://api.github.com/repos/${userName}/${repoName}/commits?per_page=${PAGE_SIZE}&page=${page}`, {
       headers: {
-        "Authorization": "token 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"
+        "Authorization": token_github
       }
     })
     .then(response => {
