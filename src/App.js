@@ -7,7 +7,6 @@ import { useEffect, useReducer, useState } from "react";
 import Form from './components/Form';
 import RacingBarChart from "./components/RacingBarChart";
 // import RacingBarChart from "./components/RacingChart";
-import logo from './logo.svg';
 import useInterval from './useInterval';
 
 const PAGE_SIZE = 100;
@@ -192,7 +191,6 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
         <Form
           repoName={state.repoName}
           userName={state.userName}
@@ -210,7 +208,7 @@ function App() {
             }
           }}
         />
-        {state.commitsLoaded ? <div></div> : null}
+        {state.commitsLoaded ? <div>Commits loaded</div> : "The race can start when all commits from the repo have been fetched"}
         <div className='buttons'>
           <button onClick={() => {
             dispatch(setLoading(true))
@@ -218,16 +216,19 @@ function App() {
           }}>
             Fetch github commits data
           </button>
-          <button onClick={() => {
-            setPlay(!play)
-          }}>
+          <button
+            disabled={!state.commitsLoaded}
+            onClick={() => {
+              setPlay(!play)
+            }}>
             {play ? "Stop" : "Play"}
           </button>
-          <div>
-            <RacingBarChart data={state.data} />
-          </div>
         </div>
       </header>
+
+      <div className='chart'>
+        <RacingBarChart data={state.data} />
+      </div>
     </div>
   );
 }
