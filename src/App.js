@@ -8,34 +8,19 @@ import Form from './components/Form';
 import RacingBarChart from "./components/RacingBarChart";
 // import RacingBarChart from "./components/RacingChart";
 import logo from './logo.svg';
+import useInterval from './useInterval';
 
 const PAGE_SIZE = 100;
+const MAX_ITERATIONS = 1;
 const NUM_USERS_TO_SHOW = 5;
 
 const initialData = [
-  {
-    name: "alpha",
-    value: 10,
-    color: "#f4efd3"
-  },
-  {
-    name: "beta",
-    value: 15,
-    color: "#cccccc"
-  },
 ];
 
-const extraData = [
-  {
-    name: "charlie",
-    value: 10,
-    color: "#f4efd3"
-  }
-]
 
 const initialState = {
-  userName: "MV88",
-  repoName: "tab-results",
+  userName: "geosolutions-it",
+  repoName: "MapStore2",
   data: initialData,
   commits: [],
   commitsLoaded: false
@@ -113,7 +98,7 @@ const getCommits = (page, userName, repoName, dispatch) => {
   axios
     .get(`https://api.github.com/repos/${userName}/${repoName}/commits?per_page=${PAGE_SIZE}&page=${page}`, {
       headers: {
-        "Authorization": "token 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"
+        "Authorization": "token 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"
       }
     })
     .then(response => {
@@ -122,7 +107,8 @@ const getCommits = (page, userName, repoName, dispatch) => {
           const commits = response.data.reverse().map((commitObj) => {
             return {
               date: commitObj.commit.committer.date.split("T")[0],
-              name: commitObj?.committer?.login || commitObj.commit.committer.name,
+              name: commitObj?.author?.login ||
+                commitObj?.committer?.login || commitObj.commit.committer.name,
               dateObj: {
                 originalDate: commitObj.commit.committer.date,
                 day: new Date(commitObj.commit.committer.date).getDate(),
@@ -137,7 +123,7 @@ const getCommits = (page, userName, repoName, dispatch) => {
           console.log("commits page: " + page, commits)
           dispatch(setCommits(commits));
 
-          if (response.data.length === 100) {
+          if (response.data.length === 100 && page < MAX_ITERATIONS) {
             getCommits(page + 1, userName, repoName, dispatch);
           } else {
             dispatch(commitsLoaded());
@@ -152,29 +138,35 @@ const getCommits = (page, userName, repoName, dispatch) => {
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [play, setPlay] = useState(false);
+  const [indexDay, setIndexDay] = useState(0);
+  const [orderedData, setOrderedData] = useState([]);
   const fetchCommits = () => {
     getCommits(1, state.userName, state.repoName, dispatch);
   }
   useEffect(() => {
     if (state.commitsLoaded) {
-      const commits = state.commits.reduce((prev, current) => {
-        return {
-          ...prev,
-          [current.date]: {
-            [current.name]: {
-              value: (prev?.[current.date]?.[current.name].value || 0) + current.value,
-              name: current.name
-            }
+      let globalCommits = {};
+      const commitsPerUser = state.commits.reduce((prev, current) => {
+        globalCommits = {
+          ...globalCommits,
+          [current.name]: {
+            value: (globalCommits[current.name]?.value || 0) + current.value,
+            color: globalCommits[current.name]?.color || '#' + (0x1000000 + Math.random() * 0xffffff).toString(16).substr(1, 6)
           }
         }
+        return {
+          ...prev,
+          [current.date]: globalCommits
+        }
       }, {});
-      console.log("commits organized per day", commits);
-      const bestSelection = Object.keys(commits).reduce((prev, current) => {
-        const dataPerUser = commits[current];
+      console.log("commits organized per day", commitsPerUser);
+
+      const bestSelection = Object.keys(commitsPerUser).reduce((prev, current) => {
+        const dataPerUser = commitsPerUser[current];
         const dataPerUserArray = Object.keys(dataPerUser).map(username => {
-          return { name: username, value: dataPerUser[username].value };
+          return { name: username, value: dataPerUser[username].value, color: dataPerUser[username].color };
         });
-        const users = orderBy(dataPerUserArray, 'value', 'desc')
+        const users = orderBy(dataPerUserArray, 'value', 'desc');
         const usersFiltered = users.filter((_, i) => (i < NUM_USERS_TO_SHOW));
         return {
           ...prev,
@@ -182,11 +174,21 @@ function App() {
         }
 
       }, {})
-      console.log("top 5 commits", bestSelection);
+      console.log("top 5 users's commits", bestSelection);
 
+      setOrderedData(bestSelection);
 
     }
-  }, [state.commitsLoaded, state.commits])
+  }, [state.commitsLoaded, state.commits]);
+  useInterval(() => {
+    if (play) {
+      const dataKeys = Object.keys(orderedData);
+      if (orderedData[dataKeys[indexDay]]) {
+        dispatch(setData(orderedData[dataKeys[indexDay]]))
+        setIndexDay(indexDay + 1);
+      }
+    }
+  }, 500);
   return (
     <div className="App">
       <header className="App-header">
@@ -220,11 +222,6 @@ function App() {
             setPlay(!play)
           }}>
             {play ? "Stop" : "Play"}
-          </button>
-          <button onClick={() => {
-            dispatch(setData(state.data.concat(extraData)))
-          }}>
-            Add one data
           </button>
           <div>
             <RacingBarChart data={state.data} />
